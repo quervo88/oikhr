@@ -1,0 +1,218 @@
+<div class="flex flex-col gap-6 fade-in">
+  
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 justify-between items-center">
+        
+        <div class="flex bg-slate-100 p-1 rounded-lg shrink-0">
+            <button (click)="setViewMode('planning')" 
+                    class="px-4 py-2 rounded-md text-sm font-bold transition-all"
+                    [ngClass]="viewMode === 'planning' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'">
+                <span class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">view_timeline</span> 
+                    <span class="hidden sm:inline">Tervezés</span>
+                </span>
+            </button>
+            <button (click)="setViewMode('accounting')"
+                    class="px-4 py-2 rounded-md text-sm font-bold transition-all"
+                    [ngClass]="viewMode === 'accounting' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'">
+                <span class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-lg">receipt_long</span> 
+                    <span class="hidden sm:inline">Elszámolás</span>
+                </span>
+            </button>
+        </div>
+    
+        <div class="flex-grow flex justify-center w-full md:w-auto px-4">
+            
+            <div *ngIf="viewMode === 'planning'" class="flex flex-wrap gap-2 justify-center">
+                <label *ngFor="let user of users" class="cursor-pointer select-none group">
+                    <input type="checkbox" class="peer sr-only" 
+                           [checked]="selectedUserIds.includes(user.id)" 
+                           (change)="toggleUserSelection(user.id)">
+                    <div class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 text-xs font-bold peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 transition-all hover:border-blue-400">
+                        {{ user.name }}
+                    </div>
+                </label>
+            </div>
+    
+            <div *ngIf="viewMode === 'accounting'" class="w-full max-w-xs">
+                <div class="relative">
+                    <span class="absolute left-3 top-2.5 material-symbols-outlined text-slate-400 text-sm">person</span>
+                    <select [disabled]="currentUserRole === 'dispatcher'"
+                            [ngModel]="accountingUserId" 
+                            (ngModelChange)="setAccountingUser($event)"
+                            class="bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 font-bold disabled:bg-slate-50 disabled:text-slate-500 outline-none appearance-none">
+                        <option *ngFor="let user of users" [value]="user.id">{{ user.name }}</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="shrink-0">
+            <button (click)="openQuickFill()" class="flex items-center gap-2 text-purple-700 bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-purple-200">
+                <span class="material-symbols-outlined">auto_fix_high</span> 
+                <span class="hidden sm:inline">Sablonok</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="shrink-0 ml-2">
+            <button (click)="isExportModalOpen = true" class="flex items-center gap-2 text-green-700 bg-green-50 hover:bg-green-100 px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-green-200">
+                <span class="material-symbols-outlined">download</span> 
+                <span class="hidden sm:inline">Export</span>
+            </button>
+        </div>
+  
+    <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200 sticky top-4 z-10">
+        <button (click)="prevMonth()" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600">
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        
+        <div class="text-center">
+            <h2 class="text-xl font-bold text-slate-800">
+              {{ currentDate.getFullYear() }}. {{ monthNames[currentDate.getMonth()] }}
+            </h2>
+            <div *ngIf="viewMode === 'accounting'" class="flex gap-3 text-xs text-slate-500 mt-1 justify-center">
+                <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-blue-500"></i> Beosztás</span>
+                <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-rose-500"></i> Túlóra</span>
+                <span class="flex items-center gap-1"><i class="w-2 h-2 rounded-full bg-purple-500"></i> Készenlét</span>
+            </div>
+            <div *ngIf="viewMode === 'planning'" class="flex gap-3 text-xs text-slate-500 mt-1 justify-center">
+                <span class="italic">Kattints a napra a szerkesztéshez</span>
+            </div>
+        </div>
+        
+        <button (click)="nextMonth()" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600">
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+    </div>
+  
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4" *ngIf="viewMode === 'accounting' && currentStats">
+        <div class="bg-white p-3 rounded-xl border border-blue-100 shadow-sm flex items-center gap-3">
+            <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                <span class="material-symbols-outlined">nights_stay</span>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Műszakpótlék</p>
+                <p class="text-lg font-bold text-slate-700">{{ formatTime(currentStats.shiftAllowanceMins) }}</p>
+            </div>
+        </div>
+    
+        <div class="bg-white p-3 rounded-xl border border-purple-100 shadow-sm flex items-center gap-3">
+            <div class="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                <span class="material-symbols-outlined">notifications_active</span>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Készenlét</p>
+                <p class="text-lg font-bold text-slate-700">{{ formatTime(currentStats.standbyMins) }}</p>
+            </div>
+        </div>
+    
+        <div class="bg-white p-3 rounded-xl border border-rose-100 shadow-sm flex items-center gap-3">
+            <div class="p-2 bg-rose-50 text-rose-600 rounded-lg">
+                <span class="material-symbols-outlined">av_timer</span>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Összes Túlóra</p>
+                <p class="text-lg font-bold text-slate-700">
+                    {{ formatTime(currentStats.weekdayOtMins + currentStats.restDayOtMins) }}
+                </p>
+            </div>
+        </div>
+        
+        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+            <div class="p-2 bg-slate-100 text-slate-600 rounded-lg">
+                <span class="material-symbols-outlined">event_busy</span>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase">Távollét</p>
+                <p class="text-lg font-bold text-slate-700">{{ currentStats.vacationDays + currentStats.sickDays }} nap</p>
+            </div>
+        </div>
+    </div>
+  
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-grow flex flex-col min-h-[600px]">
+        
+        <div class="grid grid-cols-7 bg-slate-50 border-b border-slate-200 text-center py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">
+            <div>Hétfő</div><div>Kedd</div><div>Szerda</div><div>Csütörtök</div><div>Péntek</div>
+            <div class="text-orange-600">Szombat</div><div class="text-orange-600">Vasárnap</div>
+        </div>
+  
+        <div class="grid grid-cols-7 auto-rows-fr flex-grow bg-slate-100 gap-px border-b border-slate-200">
+          
+          <div *ngFor="let day of daysInMonth"
+               (click)="onDayClick(day)"
+               class="relative p-2 min-h-[100px] transition-all group flex flex-col"
+               [ngClass]="{
+                 'bg-white hover:bg-sky-50 cursor-pointer': day.type === 'day' && !day.isWeekend,
+                 'bg-orange-50/40 hover:bg-orange-50 cursor-pointer': day.type === 'day' && day.isWeekend,
+                 'bg-slate-50 pointer-events-none': day.type === 'empty'
+               }">
+  
+              <ng-container *ngIf="day.type === 'day'">
+                
+                <div class="flex justify-between items-start mb-1">
+                  <span class="w-6 h-6 flex items-center justify-center rounded-full text-sm font-semibold"
+                        [ngClass]="day.isWeekend ? 'text-orange-600' : 'text-slate-700'">
+                    {{ day.dayNum }}
+                  </span>
+                  <span *ngIf="day.holidayName" class="text-[9px] uppercase tracking-tighter font-bold bg-slate-200 text-slate-500 px-1 rounded">
+                    {{ day.holidayName }}
+                  </span>
+                </div>
+  
+                <ng-container *ngIf="viewMode === 'accounting'">
+                    <div *ngIf="day.shift" 
+                        class="text-[10px] p-1 rounded border mb-1 truncate font-medium"
+                        [ngClass]="getShiftColor(day.shift.type)">
+                        <div>{{ getShiftLabel(day.shift.type) }}</div>
+                        <div *ngIf="day.shift.startTime" class="text-[9px] opacity-80 font-normal">
+                            {{ day.shift.startTime }} - {{ day.shift.endTime }}
+                        </div>
+                    </div>
+
+                    <div *ngIf="day.overtimes && day.overtimes.length > 0" 
+                        class="flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded px-1 py-0.5 mt-auto">
+                        <span class="material-symbols-outlined text-[10px]">av_timer</span>
+                        {{ day.overtimes.length }} db Túlóra
+                    </div>
+                </ng-container>
+
+                <ng-container *ngIf="viewMode === 'planning' && day.planningItems">
+                    <div class="flex flex-col gap-1 overflow-y-auto max-h-[120px] no-scrollbar">
+                        <div *ngFor="let item of day.planningItems" 
+                             class="text-[10px] px-1.5 py-1 rounded border truncate font-bold shadow-sm"
+                             [ngClass]="item.color">
+                            {{ item.text }}
+                        </div>
+                    </div>
+                </ng-container>
+  
+                <div *ngIf="!day.shift && (!day.overtimes || day.overtimes.length === 0) && (!day.planningItems || day.planningItems.length === 0)" 
+                     class="mt-auto text-center text-slate-300 opacity-0 group-hover:opacity-100 text-xs font-medium transition-opacity">
+                  +
+                </div>
+  
+              </ng-container>
+          </div>
+  
+        </div>
+    </div>
+  </div>
+  
+<app-entry-modal 
+      *ngIf="isModalOpen"
+      [date]="selectedDate"
+      [existingShift]="selectedShift"
+      [existingOvertimes]="selectedOvertimes"
+      [isWeekendOrHoliday]="selectedIsWeekend"
+      
+      [defaultUserId]="viewMode === 'accounting' ? accountingUserId : (selectedUserIds.length === 1 ? selectedUserIds[0] : '')"
+      
+      (close)="isModalOpen = false"
+      (save)="onModalSave($event)">
+  </app-entry-modal>
+
+  <app-export-modal 
+    *ngIf="isExportModalOpen" 
+    (close)="isExportModalOpen = false">
+</app-export-modal>

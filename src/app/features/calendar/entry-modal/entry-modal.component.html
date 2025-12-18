@@ -1,0 +1,156 @@
+<div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
+            <div>
+                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <span>{{ date }}</span>
+                    <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">
+                        {{ isWeekendOrHoliday ? 'Hétvége / Ünnep' : 'Munkanap' }}
+                    </span>
+                </h3>
+            </div>
+            
+            <div *ngIf="currentUserRole !== 'dispatcher'" class="flex items-center gap-2">
+                <label class="text-xs font-bold text-slate-500 uppercase">Dolgozó:</label>
+                <select [(ngModel)]="targetUserId" class="border border-slate-300 rounded px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:border-blue-500">
+                    <option *ngFor="let user of users" [value]="user.id">{{ user.name }}</option>
+                </select>
+            </div>
+
+            <button (click)="close.emit()" class="text-slate-400 hover:text-red-500 transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+<div class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 fade-in">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        
+        <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
+            <div>
+                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <span>{{ date }}</span>
+                    <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">
+                        {{ isWeekendOrHoliday ? 'Hétvége / Ünnep' : 'Munkanap' }}
+                    </span>
+                </h3>
+            </div>
+            <button (click)="close.emit()" class="text-slate-400 hover:text-red-500 transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <div class="flex border-b border-slate-200 px-6 gap-6 shrink-0 bg-white sticky top-0 z-10">
+            <button (click)="activeTab = 'shift'" 
+                    class="py-3 text-sm font-medium border-b-2 transition-colors"
+                    [ngClass]="activeTab === 'shift' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
+                Alap Beosztás (HR)
+            </button>
+            <button (click)="activeTab = 'overtime'"
+                    class="py-3 text-sm font-medium border-b-2 transition-colors"
+                    [ngClass]="activeTab === 'overtime' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'">
+                Túlóra & Egyéb
+            </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto flex-grow space-y-6">
+            
+            <div *ngIf="activeTab === 'shift'" class="fade-in">
+                
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                    <button *ngFor="let type of shiftTypes"
+                            (click)="selectMainType(type)"
+                            class="group p-3 rounded-xl border transition-all text-center flex flex-col items-center justify-center min-h-[80px]"
+                            [ngClass]="mainType === type 
+                                ? 'ring-2 ring-blue-500 bg-blue-50 border-blue-500' 
+                                : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'">
+                        
+                        <span class="material-symbols-outlined mb-1" [ngClass]="shiftTypesConfig[type].color">
+                            {{ type === 'nappal' ? 'light_mode' : 
+                               type === 'este' ? 'wb_twilight' : 
+                               type === 'ejszaka' ? 'dark_mode' : 
+                               type === 'keszenlet' ? 'notifications_active' : 
+                               type === 'szabadsag' ? 'beach_access' : 'sick' }}
+                        </span>
+                        <span class="text-xs font-bold text-slate-700">{{ shiftTypesConfig[type].label }}</span>
+                    </button>
+                </div>
+
+                <div *ngIf="mainType && shiftTypesConfig[mainType].start !== null" 
+                     class="bg-slate-50 p-4 rounded-lg border border-slate-200 transition-all">
+                    <div class="flex items-end gap-4">
+                        <div class="flex-1">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Kezdés</label>
+                            <input [(ngModel)]="mainStart" type="time" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-blue-500">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Befejezés</label>
+                            <input [(ngModel)]="mainEnd" type="time" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div *ngIf="activeTab === 'overtime'" class="fade-in space-y-6">
+                
+                <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                    <h4 class="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-lg">add_circle</span> Új túlóra rögzítése
+                    </h4>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                        <select [(ngModel)]="newOtType" class="w-full border border-slate-300 rounded px-3 py-2 text-sm outline-none bg-white">
+                            <option value="ticket">Ticket (Hibajegy)</option>
+                            <option value="substitution">Helyettesítés</option>
+                            <option value="other">Egyéb</option>
+                        </select>
+                        <input [(ngModel)]="newOtStart" type="time" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white" placeholder="Kezdés">
+                        <input [(ngModel)]="newOtEnd" [disabled]="newOtType === 'ticket'" type="time" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white disabled:bg-slate-100 disabled:text-slate-400" placeholder="Vége">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <input *ngIf="newOtType === 'ticket'" [(ngModel)]="newOtDetails" type="text" pattern="[0-9]*" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white" placeholder="Ticket ID (csak szám)">
+                        <input *ngIf="newOtType === 'other'" [(ngModel)]="newOtDetails" type="text" class="col-span-2 w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white" placeholder="Indoklás (kötelező)">
+                        
+                        <button (click)="addOvertime()" class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 text-sm font-bold transition-colors w-full sm:w-auto ml-auto col-start-3 shadow-sm">
+                            Hozzáadás
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Rögzített tételek erre a napra</h4>
+                    <div *ngIf="tempOvertimes.length === 0" class="text-center text-slate-400 text-sm py-4 italic bg-slate-50 rounded border border-slate-100 border-dashed">
+                        Nincs rögzített túlóra.
+                    </div>
+                    <div class="space-y-2">
+                        <div *ngFor="let ot of tempOvertimes; let i = index" class="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 text-sm shadow-sm">
+                            <div class="flex items-center gap-3">
+                                <span class="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded uppercase">{{ ot.type === 'ticket' ? 'Ticket' : (ot.type === 'substitution' ? 'Helyettesítés' : 'Egyéb') }}</span>
+                                <span class="font-bold text-slate-800">{{ ot.startTime }} - {{ ot.endTime }}</span>
+                                <span class="text-slate-400">|</span>
+                                <span class="text-slate-600">{{ ot.details || '-' }}</span>
+                            </div>
+                            <button (click)="removeOvertime(i)" class="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors">
+                                <span class="material-symbols-outlined text-lg">delete</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+<div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <button *ngIf="existingShift" (click)="onDeleteMain()" class="mr-auto text-red-500 hover:bg-red-50 hover:text-red-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-transparent hover:border-red-200">
+                Beosztás Törlése
+            </button>
+
+            <button (click)="close.emit()" class="px-5 py-2 text-slate-600 hover:bg-slate-200 rounded-lg text-sm font-bold transition-colors">
+                Mégse
+            </button>
+            <button (click)="onSave()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/30 transition-all transform active:scale-95">
+                Mentés
+            </button>
+        </div>
+
+    </div>
+</div>

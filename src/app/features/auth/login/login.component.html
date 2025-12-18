@@ -1,0 +1,57 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-100">
+  <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-slate-200">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-100 text-brand-600 mb-4">
+        <span class="material-symbols-outlined text-2xl">lock</span>
+      </div>
+      <h1 class="text-2xl font-bold text-slate-800">OIK HR PORTÁL</h1>
+      <p class="text-slate-500 text-sm">Jelentkezz be a folytatáshoz</p>
+    </div>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Felhasználónév</label>
+        <input 
+          [(ngModel)]="username" 
+          type="text" 
+          class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+          placeholder="Pl. disp1">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-slate-700 mb-1">Jelszó</label>
+        <input 
+          [(ngModel)]="password" 
+          (keyup.enter)="onLogin()"
+          type="password" 
+          class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+          placeholder="******">
+      </div>
+
+      <div *ngIf="errorMsg" class="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+        {{ errorMsg }}
+      </div>
+
+      <button 
+        (click)="onLogin()"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow-sm">
+        Belépés
+      </button>
+      
+      <div class="mt-4 pt-4 border-t border-slate-100">
+        <button (click)="goToRegister()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-lg transition-colors shadow-sm border border-slate-200">
+            Regisztráció
+        </button>
+      </div>
+    </div>
+
+    <div class="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
+      <p>Elérhető teszt fiókok (Jelszó megegyezik a névvel):</p>
+      <div class="flex gap-2 justify-center mt-1 font-mono">
+        <span class="bg-slate-100 px-2 py-1 rounded">admin</span>
+        <span class="bg-slate-100 px-2 py-1 rounded">hr</span>
+        <span class="bg-slate-100 px-2 py-1 rounded">disp1</span>
+      </div>
+    </div>
+  </div>
+</div>

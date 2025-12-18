@@ -1,0 +1,43 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-100 py-10 px-4">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-slate-200">
+      
+      <div class="text-center mb-6">
+        <h1 class="text-2xl font-bold text-slate-800">Fiók Létrehozása</h1>
+        <p class="text-slate-500 text-sm">OIK HR PORTÁL</p>
+      </div>
+  
+      <div class="space-y-4">
+        
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Teljes Név</label>
+          <input [(ngModel)]="name" type="text" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Pl. Kiss Péter">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Felhasználónév</label>
+          <input [(ngModel)]="username" type="text" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Pl. kiss.p">
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Jelszó</label>
+            <input [(ngModel)]="password" type="password" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="******">
+        </div>
+
+  
+        <div *ngIf="errorMsg" class="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 text-center">
+          {{ errorMsg }}
+        </div>
+  
+        <button (click)="onRegister()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow-sm mt-2">
+          Regisztráció
+        </button>
+
+        <div class="text-center pt-4 border-t border-slate-100">
+            <a routerLink="/login" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                Már van fiókom, belépek
+            </a>
+        </div>
+
+      </div>
+    </div>
+  </div>

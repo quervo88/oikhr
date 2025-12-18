@@ -1,0 +1,79 @@
+<div class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 fade-in">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        
+        <div class="bg-slate-800 px-6 py-4 flex justify-between items-center text-white shrink-0">
+            <h3 class="text-xl font-bold flex items-center gap-2">
+                <span class="material-symbols-outlined">description</span>
+                Munkaidő-elszámolás Export
+            </h3>
+            <button (click)="close.emit()" class="text-white/80 hover:text-white transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <div class="p-6 overflow-y-auto space-y-6">
+            
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Dolgozó kiválasztása</label>
+                <div class="relative">
+                    <span class="absolute left-3 top-2.5 material-symbols-outlined text-slate-400 text-sm">person</span>
+                    <select [(ngModel)]="selectedUserId" class="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option *ngFor="let user of users" [value]="user.id">{{ user.name }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr class="border-slate-100">
+
+            <div>
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Elszámolási Hónap</label>
+                <input [(ngModel)]="targetMonthStr" (change)="onMonthChange()" type="month" class="w-full border border-slate-300 rounded px-3 py-2 font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-3 bg-slate-50 rounded border border-slate-200">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">Beosztás</p>
+                    <div class="text-sm font-bold text-slate-700">{{ stdStartStr }}</div>
+                    <div class="text-xs text-slate-500">-tól</div>
+                    <div class="text-sm font-bold text-slate-700">{{ stdEndStr }}</div>
+                    <div class="text-xs text-slate-500">-ig</div>
+                </div>
+
+                <div class="p-3 bg-blue-50 rounded border border-blue-100">
+                    <p class="text-[10px] font-bold text-blue-400 uppercase mb-1">Túlóra Elszámolás</p>
+                    <input [(ngModel)]="otStartStr" type="date" class="w-full text-xs p-1 mb-1 border border-blue-200 rounded bg-white">
+                    <input [(ngModel)]="otEndStr" type="date" class="w-full text-xs p-1 border border-blue-200 rounded bg-white">
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-500">warning</span>
+                    Előző havi "beragadt" helyettesítések
+                </h4>
+                <div class="bg-slate-50 rounded border border-slate-200 max-h-[150px] overflow-y-auto p-2 space-y-1">
+                    <div *ngIf="pendingSubstitutions.length === 0" class="text-center text-xs text-slate-400 py-2 italic">
+                        Nincs megjeleníthető tétel.
+                    </div>
+
+                    <label *ngFor="let item of pendingSubstitutions" class="flex items-center gap-3 p-2 bg-white border border-slate-100 rounded cursor-pointer hover:bg-amber-50 transition-colors">
+                        <input type="checkbox" [(ngModel)]="item.selected" class="w-4 h-4 text-green-600 rounded focus:ring-green-500">
+                        <div class="text-xs">
+                            <div class="font-bold text-slate-700">{{ item.userName }}</div>
+                            <div class="text-slate-500">{{ item.entry.date }} | {{ item.entry.startTime }}-{{ item.entry.endTime }}</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <button (click)="startExport('excel')" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                <span class="material-symbols-outlined">table_view</span> Excel
+            </button>
+            <button (click)="startExport('pdf')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2">
+                <span class="material-symbols-outlined">picture_as_pdf</span> PDF
+            </button>
+        </div>
+    </div>
+</div>

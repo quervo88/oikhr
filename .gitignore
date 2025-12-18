@@ -1,0 +1,10 @@
+# .gitignore
+/node_modules
+/dist
+/.angular
+/.vscode
+.DS_Store
+*.log
+.firebase
+/firebase-debug.log
+.env
