@@ -20,7 +20,17 @@ export class CalendarViewComponent implements OnInit {
   public authService = inject(AuthService);
   private salaryService = inject(SalaryService);
 
+  // Modal állapotok
   isExportModalOpen = false;
+  isModalOpen = false;
+  
+  // --- Quick Fill Modal állapotok ---
+  isQuickFillModalOpen = false;
+  quickFillTargetUserId = '';
+  quickFillTemplate = 'night'; // Alapértelmezés
+  quickFillDate = ''; 
+  // --------------------------------------
+
   currentDate = new Date();
   daysInMonth: any[] = [];
   monthNames = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
@@ -29,7 +39,6 @@ export class CalendarViewComponent implements OnInit {
   overtimes: OvertimeEntry[] = [];
   overrides: CalendarDayOverride[] = [];
 
-  isModalOpen = false;
   selectedDate: string = '';
   selectedShift: ShiftEntry | undefined;
   selectedOvertimes: OvertimeEntry[] = [];
@@ -144,12 +153,15 @@ export class CalendarViewComponent implements OnInit {
                    else if (shift.type === 'keszenlet') {
                        const timeStr = (shift.startTime === '00:00' && shift.endTime === '00:00') ? '0-24' : `${shift.startTime}-${shift.endTime}`;
                        planningItems.push({ text: `${timeStr} ${userName} (K)`, color: 'bg-purple-100 text-purple-800', sort: '99:99' }); 
-                   } else if (shift.type === 'szabadsag') planningItems.push({ text: `SZABI ${userName}`, color: 'bg-green-100 text-green-800', sort: '00:00' });
-                   else if (shift.type === 'betegseg') planningItems.push({ text: `BETEG ${userName}`, color: 'bg-red-100 text-red-800', sort: '00:00' });
+                   } 
+                   // JAVÍTÁS: A szabadság és betegség sort-ját ZZZZ-re állítjuk, hogy a lista végére kerüljenek
+                   else if (shift.type === 'szabadsag') planningItems.push({ text: `SZABI ${userName}`, color: 'bg-green-100 text-green-800', sort: 'ZZZZ' });
+                   else if (shift.type === 'betegseg') planningItems.push({ text: `BETEG ${userName}`, color: 'bg-red-100 text-red-800', sort: 'ZZZY' });
                 }
                 const subs = this.overtimes.filter(o => o.date === dateStr && o.userId === uid && o.type === 'substitution');
                 subs.forEach(sub => planningItems.push({ text: `${sub.startTime}-${sub.endTime} ${userName} (H)`, color: 'bg-rose-100 text-rose-800 font-bold border border-rose-300', sort: sub.startTime }));
             });
+            // Rendezés a 'sort' kulcs alapján (Időpontok előre, ZZZZ a végére)
             planningItems.sort((a, b) => a.sort.localeCompare(b.sort));
             dayObj.planningItems = planningItems;
         }
@@ -184,7 +196,6 @@ export class CalendarViewComponent implements OnInit {
     this.selectedDate = day.dateStr;
     this.selectedIsWeekend = day.isWeekend;
     
-    // Alaphelyzetbe állítás
     this.selectedShift = undefined;
     this.selectedOvertimes = [];
 
@@ -193,7 +204,6 @@ export class CalendarViewComponent implements OnInit {
         this.selectedShift = this.shifts.find(s => s.date === day.dateStr && s.userId === userId);
         this.selectedOvertimes = this.overtimes.filter(o => o.date === day.dateStr && o.userId === userId);
     } else {
-        // Tervező módban csak akkor töltjük be szerkesztésre, ha EGY emberre szűrtünk
         if (this.selectedUserIds.length === 1) {
              const uid = this.selectedUserIds[0];
              this.selectedShift = this.shifts.find(s => s.date === day.dateStr && s.userId === uid);
@@ -204,54 +214,111 @@ export class CalendarViewComponent implements OnInit {
   }
 
   async onModalSave(event: {main: ShiftEntry | null, overtimes: OvertimeEntry[]}) {
-    // 1. TÖRLÉS ESETE
     if (event.main === null) {
-        // Ha van kiválasztott shiftünk, tudjuk kitől kell törölni
         if (this.selectedShift) {
              await this.dataService.deleteShift(this.selectedDate, this.selectedShift.userId);
         } else if (this.accountingUserId) {
-             // Biztonsági tartalék: ha accounting módban vagyunk, a kiválasztott user a célpont
              await this.dataService.deleteShift(this.selectedDate, this.accountingUserId);
         } else if (this.selectedUserIds.length === 1) {
-             // Tervező módban, ha egy user van
              await this.dataService.deleteShift(this.selectedDate, this.selectedUserIds[0]);
         }
-    } 
-    // 2. MENTÉS ESETE
-    else {
+    } else {
         await this.dataService.saveShift(event.main);
     }
 
-    // 3. TÚLÓRÁK KEZELÉSE
-    // Ha törlés volt, akkor a túlórát is törölni kell (üres lista mentése), vagy ha mentés volt, akkor frissíteni.
     let targetUserIdForOt = '';
-    
-    if (event.main) {
-        targetUserIdForOt = event.main.userId;
-    } else if (this.selectedShift) {
-        targetUserIdForOt = this.selectedShift.userId;
-    } else if (this.accountingUserId) {
-        targetUserIdForOt = this.accountingUserId;
-    } else if (this.selectedUserIds.length === 1) {
-        targetUserIdForOt = this.selectedUserIds[0];
-    }
+    if (event.main) targetUserIdForOt = event.main.userId;
+    else if (this.selectedShift) targetUserIdForOt = this.selectedShift.userId;
+    else if (this.accountingUserId) targetUserIdForOt = this.accountingUserId;
+    else if (this.selectedUserIds.length === 1) targetUserIdForOt = this.selectedUserIds[0];
 
     if (targetUserIdForOt) {
-         // Ha törlés (event.main === null), akkor is lefuthat a updateOvertimes, 
-         // de ilyenkor az event.overtimes valószínűleg üres, vagy amit a modal visszaküldött.
-         // Ha a modal törléskor visszaküldi a túlórákat, azokat megtartjuk? 
-         // Általában ha a napot töröljük, mindent törlünk. 
-         // A kódodban a modal visszaküldi a túlórákat törléskor is. 
-         // Ha azt szeretnéd, hogy a törlés mindent vigyen, akkor itt []-t kellene menteni.
-         // Jelenlegi logika: Megtartja a túlórákat, ha a modal visszaküldi őket, csak a fő műszakot törli.
          await this.dataService.updateOvertimesForDay(this.selectedDate, targetUserIdForOt, event.overtimes);
     }
 
     this.isModalOpen = false;
   }
   
-  openQuickFill() { /* ... */ }
-  applyTemplate(userId: string, type: string, mondayDate: Date) { /* ... */ }
+  // --- SABLON / GYORSKITÖLTÉS KEZELÉS ---
+
+  openQuickFill() { 
+    if (this.viewMode === 'accounting') {
+        this.quickFillTargetUserId = this.accountingUserId;
+    } else if (this.selectedUserIds.length === 1) {
+        this.quickFillTargetUserId = this.selectedUserIds[0];
+    } else if (this.users.length > 0) {
+        this.quickFillTargetUserId = this.users[0].id;
+    }
+
+    this.quickFillDate = new Date().toISOString().split('T')[0];
+    this.isQuickFillModalOpen = true;
+  }
+
+  async applyQuickFill() {
+    if (!this.quickFillTargetUserId || !this.quickFillDate) {
+        alert('Kérlek válassz dolgozót és dátumot!');
+        return;
+    }
+
+    // 1. Kiszámoljuk a hétfőt
+    const d = new Date(this.quickFillDate);
+    const day = d.getDay(); 
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diff));
+
+    const promises = [];
+    
+    // 2. Végigmegyünk a hét 7 napján (Hétfő-Vasárnap)
+    for (let i = 0; i < 7; i++) {
+        const current = new Date(monday);
+        current.setDate(monday.getDate() + i);
+        
+        const y = current.getFullYear();
+        const m = String(current.getMonth() + 1).padStart(2, '0');
+        const dayStr = String(current.getDate()).padStart(2, '0');
+        const dateString = `${y}-${m}-${dayStr}`;
+
+        // Hét napjai: 0=Hétfő, 1=Kedd, ..., 4=Péntek, 5=Szombat, 6=Vasárnap (a ciklusban)
+        const isMonToFri = i < 5; 
+        const isSat = i === 5;
+        const isSun = i === 6;
+
+        let newShift: ShiftEntry | null = null;
+
+        // --- ÚJ SABLON LOGIKA ---
+        
+        // 1. Éjszaka: H-P 00-08, Szo 00-24
+        if (this.quickFillTemplate === 'night') {
+            if (isMonToFri) {
+                newShift = { id: '', userId: this.quickFillTargetUserId, date: dateString, type: 'ejszaka', startTime: '00:00', endTime: '08:00' };
+            } else if (isSat) {
+                newShift = { id: '', userId: this.quickFillTargetUserId, date: dateString, type: 'keszenlet', startTime: '00:00', endTime: '00:00' };
+            }
+        } 
+        // 2. Napközben: H-P 08-16, Vas 00-24
+        else if (this.quickFillTemplate === 'day') {
+            if (isMonToFri) {
+                newShift = { id: '', userId: this.quickFillTargetUserId, date: dateString, type: 'nappal', startTime: '08:00', endTime: '16:00' };
+            } else if (isSun) {
+                newShift = { id: '', userId: this.quickFillTargetUserId, date: dateString, type: 'keszenlet', startTime: '00:00', endTime: '00:00' };
+            }
+        } 
+        // 3. Este: H-P 16-00
+        else if (this.quickFillTemplate === 'afternoon') {
+            if (isMonToFri) {
+                newShift = { id: '', userId: this.quickFillTargetUserId, date: dateString, type: 'este', startTime: '16:00', endTime: '00:00' };
+            }
+        }
+
+        if (newShift) {
+            promises.push(this.dataService.saveShift(newShift));
+        }
+    }
+
+    await Promise.all(promises);
+    this.isQuickFillModalOpen = false;
+  }
+
   prevMonth() { this.currentDate.setMonth(this.currentDate.getMonth() - 1); this.generateCalendar(); }
   nextMonth() { this.currentDate.setMonth(this.currentDate.getMonth() + 1); this.generateCalendar(); }
   formatTime(mins: number) { return this.salaryService.minsToHm(mins); }

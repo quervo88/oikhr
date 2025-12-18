@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, inject, OnInit, Output } from '@angular/core'; // Input hozzáadva
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../../core/services/data.service';
@@ -12,9 +12,13 @@ import { OvertimeEntry, User } from '../../../core/models/app.models';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './export-modal.component.html',
-  styleUrl: './export-modal.component.scss' // Feltételezve, hogy van scss fájlod, ha nincs, töröld ezt a sort
+  styleUrl: './export-modal.component.scss'
 })
 export class ExportModalComponent implements OnInit {
+  // JAVÍTÁS: Ez hiányzott, ezért szállt el a build!
+  // A CalendarView átadja a [currentUser]-t, itt fogadjuk:
+  @Input() currentUser!: User; 
+
   @Output() close = new EventEmitter<void>();
 
   dataService = inject(DataService);
@@ -48,10 +52,12 @@ export class ExportModalComponent implements OnInit {
         // Itt szűrhetünk, hogy kik jelenjenek meg (pl. csak diszpécserek)
         this.users = u; 
         
-        // Alapértelmezett user beállítása (bejelentkezett user vagy az első a listában)
-        const currentUser = this.authService.getCurrentUser();
-        if (currentUser && this.users.find(u => u.id === currentUser.id)) {
-            this.selectedUserId = currentUser.id;
+        // Alapértelmezett user beállítása
+        // JAVÍTÁS: Először megnézzük, kaptunk-e Input-ot (ez a biztos), ha nem, akkor AuthService
+        const userToSelect = this.currentUser || this.authService.getCurrentUser();
+        
+        if (userToSelect && this.users.find(u => u.id === userToSelect.id)) {
+            this.selectedUserId = userToSelect.id;
         } else if (this.users.length > 0) {
             this.selectedUserId = this.users[0].id;
         }
@@ -117,9 +123,6 @@ export class ExportModalComponent implements OnInit {
           .map(item => item.entry.id);
 
       this.dataService.getShifts().subscribe(allShifts => {
-          
-          // JAVÍTÁS: Nem tömbben adjuk át a usert, hanem egyedül!
-          // Ez illeszkedik a feltöltött excel.service.ts-hez: exportWorktimeAccounting(user: User, ...)
           
           if (format === 'excel') {
               this.excelService.exportWorktimeAccounting(
