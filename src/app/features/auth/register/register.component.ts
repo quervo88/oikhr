@@ -15,22 +15,21 @@ import { Role } from '../../../core/models/app.models';
 export class RegisterComponent {
   authService = inject(AuthService);
   
-  // Form adatok
   username = '';
   name = '';
   password = '';
-  role: Role = 'dispatcher'; // Alapértelmezett
-
-  // Hibakezelés
+  role: Role = 'dispatcher';
   errorMsg = '';
+  isLoading = false;
 
-  onRegister() {
+  async onRegister() {
     if (!this.username || !this.name || !this.password) {
       this.errorMsg = 'Minden mező kitöltése kötelező!';
       return;
     }
 
-    // Meghívjuk a szervizt (az majd kezeli a sikert/hibát és az átirányítást)
-    this.authService.register(this.username, this.name, this.role, this.password);
+    this.isLoading = true;
+    await this.authService.register(this.username, this.name, this.role, this.password);
+    this.isLoading = false;
   }
 }

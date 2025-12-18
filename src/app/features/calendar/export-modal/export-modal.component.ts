@@ -1,7 +1,7 @@
 import { Component, EventEmitter, inject, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MockDataService } from '../../../core/services/mock-data.service';
+import { DataService } from '../../../core/services/data.service';
 import { ExcelService } from '../../../core/services/excel.service';
 import { PdfService } from '../../../core/services/pdf.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -17,7 +17,7 @@ import { OvertimeEntry, User } from '../../../core/models/app.models';
 export class ExportModalComponent implements OnInit {
   @Output() close = new EventEmitter<void>();
 
-  dataService = inject(MockDataService);
+  dataService = inject(DataService);
   excelService = inject(ExcelService);
   pdfService = inject(PdfService);
   authService = inject(AuthService);

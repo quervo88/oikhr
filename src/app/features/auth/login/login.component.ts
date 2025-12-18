@@ -13,20 +13,25 @@ import { AuthService } from '../../../core/services/auth.service';
 })
 export class LoginComponent {
   username = '';
-  password = ''; // ÚJ MEZŐ
+  password = '';
   errorMsg = '';
+  isLoading = false; // ÚJ: Töltés jelző
   
   private authService = inject(AuthService);
   private router = inject(Router);
 
-  onLogin() {
-    if (!this.username || !this.password) { // Jelszó ellenőrzése is
+  async onLogin() {
+    if (!this.username || !this.password) {
       this.errorMsg = 'Kérlek add meg a felhasználónevet és a jelszót!';
       return;
     }
 
-    // Átadjuk a jelszót is
-    const success = this.authService.login(this.username, this.password);
+    this.isLoading = true;
+    this.errorMsg = '';
+
+    const success = await this.authService.login(this.username, this.password);
+    
+    this.isLoading = false;
     if (!success) {
       this.errorMsg = 'Hibás felhasználónév vagy jelszó!';
     }

@@ -1,19 +1,19 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms'; // <--- FormsModule importálása az inputhoz
-import { MockDataService } from '../../../core/services/mock-data.service';
+import { FormsModule } from '@angular/forms';
+import { DataService } from '../../../core/services/data.service'; // MÓDOSULT
 import { AuthService } from '../../../core/services/auth.service';
 import { User } from '../../../core/models/app.models';
 
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [CommonModule, FormsModule], // <--- FormsModule hozzáadva
+  imports: [CommonModule, FormsModule],
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.scss'
 })
 export class UserListComponent implements OnInit {
-  dataService = inject(MockDataService);
+  dataService = inject(DataService); // MÓDOSULT
   authService = inject(AuthService);
 
   users: User[] = [];
@@ -24,27 +24,31 @@ export class UserListComponent implements OnInit {
   selectedUserForPassword: User | null = null;
   newPassword = '';
 
+  migrationSourceId = '';
+  migrationTargetId = '';
+
   ngOnInit() {
     this.currentUserId = this.authService.getCurrentUser()?.id || '';
     this.loadUsers();
   }
 
   loadUsers() {
+    // A getAllUsers Observable-t ad vissza, ez maradhat subscribe
     this.dataService.getAllUsers().subscribe(res => {
       this.users = res;
     });
   }
 
-  deleteUser(user: User) {
+  async deleteUser(user: User) { // ASYNC lett
     if (user.id === this.currentUserId) {
       alert('Saját magadat nem törölheted!');
       return;
     }
 
-    if (confirm(`Biztosan törölni szeretnéd ${user.name} felhasználót? Minden adata elvész!`)) {
-      this.dataService.deleteUser(user.id).subscribe(() => {
-        this.loadUsers(); // Lista frissítése
-      });
+    if (confirm(`Biztosan törlöd ${user.name} felhasználót? Minden adata elvész!`)) {
+      // MÓDOSULT: Promise kezelése await-tel
+      await this.dataService.deleteUser(user.id);
+      // Nem kell külön loadUsers(), mert a getAllUsers subscribe (fent) automatikusan frissül a Firestore-ból!
     }
   }
 
@@ -65,29 +69,60 @@ export class UserListComponent implements OnInit {
   saveNewPassword() {
     if (!this.selectedUserForPassword || !this.newPassword) return;
 
+    // Az AuthService adminResetPassword csak egy alertet dob Firebase esetén,
+    // de hívjuk meg a kompatibilitás kedvéért.
     this.authService.adminResetPassword(this.selectedUserForPassword.id, this.newPassword);
     
-    // Visszajelzés és bezárás
-    alert(`${this.selectedUserForPassword.name} jelszava sikeresen módosítva!`);
     this.closePasswordModal();
+  }
+
+  async migrateData() {
+    if (!this.migrationSourceId || !this.migrationTargetId) {
+      alert('Kérlek válassz ki egy forrás és egy cél felhasználót!');
+      return;
+    }
+
+    if (this.migrationSourceId === this.migrationTargetId) {
+      alert('A forrás és a cél nem lehet ugyanaz!');
+      return;
+    }
+
+    const sourceUser = this.users.find(u => u.id === this.migrationSourceId)?.name;
+    const targetUser = this.users.find(u => u.id === this.migrationTargetId)?.name;
+
+    if (!confirm(`BIZTOSAN átmozgatod az összes adatot (műszakok, túlórák) innen: ${sourceUser} --> ide: ${targetUser}?`)) {
+      return;
+    }
+
+    try {
+      const count = await this.dataService.migrateUserData(this.migrationSourceId, this.migrationTargetId);
+      alert(`Sikeres költöztetés! Összesen ${count} bejegyzés került átmozgatásra.`);
+      
+      // Opcionális: A forrás törlése
+      if (confirm(`Szeretnéd most törölni a régi, kiürített felhasználót (${sourceUser})?`)) {
+         await this.dataService.deleteUser(this.migrationSourceId);
+         this.migrationSourceId = ''; // Reset
+      }
+
+    } catch (error) {
+      console.error(error);
+      alert('Hiba történt a költöztetés során! Nézd meg a konzolt.');
+    }
   }
 
   // --- SZEREPKÖR KEZELÉS ---
 
-  onRoleChange(user: User, event: any) {
+  async onRoleChange(user: User, event: any) { // ASYNC lett
     const newRole = event.target.value;
     
-    // Nem engedjük, hogy a saját jogát elvegye (biztonsági okból)
     if (user.id === this.currentUserId) {
         alert("Saját magad jogát nem módosíthatod itt!");
-        this.loadUsers(); // Visszaállítjuk a select-et
+        this.loadUsers(); // Mivel a Firestore-ból jön, ez lehet, hogy nem állítja vissza azonnal a selectet, de a frissítés bejön.
         return;
     }
 
-    this.dataService.updateUserRole(user.id, newRole).subscribe(success => {
-        if (success) {
-            console.log(`${user.name} új szerepköre: ${newRole}`);
-        }
-    });
+    // MÓDOSULT: Promise kezelése
+    await this.dataService.updateUserRole(user.id, newRole);
+    console.log(`${user.name} új szerepköre: ${newRole}`);
   }
 }

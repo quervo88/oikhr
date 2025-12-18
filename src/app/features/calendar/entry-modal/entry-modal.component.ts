@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ShiftEntry, OvertimeEntry, ShiftType, OvertimeType, Role, User } from '../../../core/models/app.models';
 import { AuthService } from '../../../core/services/auth.service';
-import { MockDataService } from '../../../core/services/mock-data.service';
+import { DataService } from '../../../core/services/data.service';
 
 @Component({
   selector: 'app-entry-modal',
@@ -131,7 +131,7 @@ export class EntryModalComponent implements OnInit {
 
   // Service-ek
   authService = inject(AuthService);
-  dataService = inject(MockDataService);
+  dataService = inject(DataService);
 
   // Állapotváltozók
   availableUsers: User[] = [];

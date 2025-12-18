@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SalaryService } from '../../../core/services/salary.service'; // Ellenőrizd az útvonalat
 import { AuthService } from '../../../core/services/auth.service';
-import { MockDataService } from '../../../core/services/mock-data.service';
+import { DataService } from '../../../core/services/data.service';
 import { ShiftEntry, OvertimeEntry } from '../../../core/models/app.models';
 
 @Component({
@@ -16,7 +16,7 @@ import { ShiftEntry, OvertimeEntry } from '../../../core/models/app.models';
 export class SalaryCalculatorComponent implements OnInit {
   private salaryService = inject(SalaryService);
   private authService = inject(AuthService);
-  private dataService = inject(MockDataService);
+  private dataService = inject(DataService);
 
   // Alapértékek
   baseSalary: number = 0;
