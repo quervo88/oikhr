@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms'; 
-import { DataService } from '../../../core/services/data.service'; // MÓDOSULT
+import { DataService } from '../../../core/services/data.service';
 import { ShiftEntry, OvertimeEntry, CalendarDayOverride, User, SalaryStats } from '../../../core/models/app.models';
 import { AuthService } from '../../../core/services/auth.service';
 import { EntryModalComponent } from '../entry-modal/entry-modal.component';
@@ -16,12 +16,12 @@ import { ExportModalComponent } from '../export-modal/export-modal.component';
   styleUrl: './calendar-view.component.scss'
 })
 export class CalendarViewComponent implements OnInit {
-  private dataService = inject(DataService); // MÓDOSULT
+  private dataService = inject(DataService);
   public authService = inject(AuthService);
   private salaryService = inject(SalaryService);
 
   isExportModalOpen = false;
-  currentDate = new Date(); // Mostani dátum legyen az alap
+  currentDate = new Date();
   daysInMonth: any[] = [];
   monthNames = ['Január','Február','Március','Április','Május','Június','Július','Augusztus','Szeptember','Október','November','December'];
   
@@ -45,7 +45,6 @@ export class CalendarViewComponent implements OnInit {
     const user = this.authService.getCurrentUser();
     this.currentUserRole = user?.role || '';
     
-    // Feliratkozás az auth változásra, ha esetleg frissítéskor (F5) még nincs user
     this.authService.currentUser$.subscribe(u => {
         if(u) {
             this.currentUserRole = u.role;
@@ -58,7 +57,6 @@ export class CalendarViewComponent implements OnInit {
     this.dataService.getAllUsers().subscribe(u => {
         this.users = u.filter(x => x.role === 'dispatcher');
         
-        // Csak egyszer állítjuk be alapértelmezettnek
         if (this.selectedUserIds.length === 0) {
              if (this.currentUserRole === 'dispatcher') {
                 this.selectedUserIds = this.users.map(x => x.id);
@@ -74,7 +72,6 @@ export class CalendarViewComponent implements OnInit {
   }
 
   loadData() {
-    // Firestore realtime subscription
     this.dataService.getShifts().subscribe(res => {
         this.shifts = res;
         this.generateCalendar();
@@ -89,8 +86,7 @@ export class CalendarViewComponent implements OnInit {
     });
   }
 
-  // ... (A generateCalendar és egyéb metódusok változatlanok) ...
-  // Csak a metódusokat másolom be, amik a template-ből hívódnak
+  // --- TEMPLATE METÓDUSOK ---
   
   setViewMode(mode: 'planning' | 'accounting') {
     this.viewMode = mode;
@@ -112,12 +108,6 @@ export class CalendarViewComponent implements OnInit {
   }
   
   generateCalendar() {
-      // ... A te eredeti kódod a generálásra ... 
-      // Mivel ez hosszú és nem változik a logikája, csak a this.shifts tömböt használja, 
-      // itt nem írom le újra, feltételezem, hogy megvan.
-      // A LÉNYEG: A this.checkDataLoaded() hívás már nem kell a loadData-ban, 
-      // mert a subscribe automatikusan hívja a generateCalendar-t.
-      
       const year = this.currentDate.getFullYear();
       const month = this.currentDate.getMonth();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -148,7 +138,6 @@ export class CalendarViewComponent implements OnInit {
                 const shift = this.shifts.find(s => s.date === dateStr && s.userId === uid);
                 
                 if (shift) {
-                   // ... A te színkódjaid ...
                    if (shift.type === 'nappal') planningItems.push({ text: `08:00-16:00 ${userName}`, color: 'bg-amber-100 text-amber-800', sort: '08:00' });
                    else if (shift.type === 'este') planningItems.push({ text: `16:00-00:00 ${userName}`, color: 'bg-indigo-100 text-indigo-800', sort: '16:00' });
                    else if (shift.type === 'ejszaka') planningItems.push({ text: `00:00-08:00 ${userName}`, color: 'bg-slate-700 text-slate-100', sort: '00:00' });
@@ -177,10 +166,12 @@ export class CalendarViewComponent implements OnInit {
   calculateStatsForUser(userId: string) {
     const year = this.currentDate.getFullYear();
     const month = this.currentDate.getMonth();
-    const stdStart = new Date(year, month, 1);
-    const stdEnd = new Date(year, month + 1, 0);
-    const otStart = new Date(year, month - 1, 16);
-    const otEnd = new Date(year, month, 15);
+
+    const stdStart = new Date(year, month, 1, 12, 0, 0);
+    const stdEnd = new Date(year, month + 1, 0, 12, 0, 0);
+
+    const otStart = new Date(year, month - 1, 16, 12, 0, 0);
+    const otEnd = new Date(year, month, 15, 12, 0, 0);
 
     const targetShifts = this.shifts.filter(s => s.userId === userId);
     const targetOvertimes = this.overtimes.filter(o => o.userId === userId);
@@ -193,42 +184,70 @@ export class CalendarViewComponent implements OnInit {
     this.selectedDate = day.dateStr;
     this.selectedIsWeekend = day.isWeekend;
     
+    // Alaphelyzetbe állítás
+    this.selectedShift = undefined;
+    this.selectedOvertimes = [];
+
     if (this.viewMode === 'accounting') {
         const userId = this.accountingUserId;
         this.selectedShift = this.shifts.find(s => s.date === day.dateStr && s.userId === userId);
         this.selectedOvertimes = this.overtimes.filter(o => o.date === day.dateStr && o.userId === userId);
     } else {
+        // Tervező módban csak akkor töltjük be szerkesztésre, ha EGY emberre szűrtünk
         if (this.selectedUserIds.length === 1) {
              const uid = this.selectedUserIds[0];
              this.selectedShift = this.shifts.find(s => s.date === day.dateStr && s.userId === uid);
              this.selectedOvertimes = this.overtimes.filter(o => o.date === day.dateStr && o.userId === uid);
-        } else {
-             this.selectedShift = undefined;
-             this.selectedOvertimes = [];
         }
     }
     this.isModalOpen = true;
   }
 
   async onModalSave(event: {main: ShiftEntry | null, overtimes: OvertimeEntry[]}) {
-    if (event.main) {
-        await this.dataService.saveShift(event.main);
-    } else {
+    // 1. TÖRLÉS ESETE
+    if (event.main === null) {
+        // Ha van kiválasztott shiftünk, tudjuk kitől kell törölni
         if (this.selectedShift) {
-             // MÓDOSULT: A DataService.deleteShift most már dátum + user alapján keres
              await this.dataService.deleteShift(this.selectedDate, this.selectedShift.userId);
+        } else if (this.accountingUserId) {
+             // Biztonsági tartalék: ha accounting módban vagyunk, a kiválasztott user a célpont
+             await this.dataService.deleteShift(this.selectedDate, this.accountingUserId);
+        } else if (this.selectedUserIds.length === 1) {
+             // Tervező módban, ha egy user van
+             await this.dataService.deleteShift(this.selectedDate, this.selectedUserIds[0]);
         }
+    } 
+    // 2. MENTÉS ESETE
+    else {
+        await this.dataService.saveShift(event.main);
     }
 
-    if (event.overtimes.length > 0) {
-        const targetUserId = event.overtimes[0].userId;
-        await this.dataService.updateOvertimesForDay(this.selectedDate, targetUserId, event.overtimes);
+    // 3. TÚLÓRÁK KEZELÉSE
+    // Ha törlés volt, akkor a túlórát is törölni kell (üres lista mentése), vagy ha mentés volt, akkor frissíteni.
+    let targetUserIdForOt = '';
+    
+    if (event.main) {
+        targetUserIdForOt = event.main.userId;
     } else if (this.selectedShift) {
-        await this.dataService.updateOvertimesForDay(this.selectedDate, this.selectedShift.userId, []);
+        targetUserIdForOt = this.selectedShift.userId;
+    } else if (this.accountingUserId) {
+        targetUserIdForOt = this.accountingUserId;
+    } else if (this.selectedUserIds.length === 1) {
+        targetUserIdForOt = this.selectedUserIds[0];
+    }
+
+    if (targetUserIdForOt) {
+         // Ha törlés (event.main === null), akkor is lefuthat a updateOvertimes, 
+         // de ilyenkor az event.overtimes valószínűleg üres, vagy amit a modal visszaküldött.
+         // Ha a modal törléskor visszaküldi a túlórákat, azokat megtartjuk? 
+         // Általában ha a napot töröljük, mindent törlünk. 
+         // A kódodban a modal visszaküldi a túlórákat törléskor is. 
+         // Ha azt szeretnéd, hogy a törlés mindent vigyen, akkor itt []-t kellene menteni.
+         // Jelenlegi logika: Megtartja a túlórákat, ha a modal visszaküldi őket, csak a fő műszakot törli.
+         await this.dataService.updateOvertimesForDay(this.selectedDate, targetUserIdForOt, event.overtimes);
     }
 
     this.isModalOpen = false;
-    // A loadData() nem kell, mert a Firestore realtime frissíti a listát!
   }
   
   openQuickFill() { /* ... */ }

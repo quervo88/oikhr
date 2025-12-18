@@ -10,7 +10,7 @@
             <div>
                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Bruttó Alapbér</label>
                 <div class="relative">
-                    <input [(ngModel)]="baseSalary" (change)="calculate()" type="number" class="w-full pl-3 pr-10 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700">
+                    <input [(ngModel)]="baseSalary" (ngModelChange)="calculate()" type="number" class="w-full pl-3 pr-10 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700">
                     <span class="absolute right-3 top-2.5 text-slate-400 text-sm">Ft</span>
                 </div>
             </div>
@@ -35,12 +35,12 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" *ngIf="stats">
         
-        <div class="lg:col-span-1 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 text-white shadow-lg flex flex-col justify-between h-full">
+        <div *ngIf="financials" class="lg:col-span-1 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 text-white shadow-lg flex flex-col justify-between h-full">
             <div>
                 <p class="text-blue-100 text-sm font-medium uppercase tracking-wider mb-1">Becsült Nettó Fizetés</p>
                 <div class="flex items-baseline gap-2">
                     <span class="text-4xl sm:text-5xl font-extrabold tracking-tight">
-                        {{ financials?.net | number:'1.0-0' }}
+                        {{ financials.net | number:'1.0-0' }}
                     </span>
                     <span class="text-xl text-blue-200 font-medium">Ft</span>
                 </div>
@@ -49,16 +49,16 @@
             <div class="mt-6 pt-6 border-t border-white/20 space-y-2">
                 <div class="flex justify-between text-sm">
                     <span class="text-blue-100">Bruttó összesen:</span>
-                    <span class="font-bold">{{ financials?.totalGross | number:'1.0-0' }} Ft</span>
+                    <span class="font-bold">{{ financials.totalGross | number:'1.0-0' }} Ft</span>
                 </div>
                 <div class="flex justify-between text-sm">
                     <span class="text-blue-100">Levonások (33.5%):</span>
-                    <span class="font-bold text-red-200">-{{ financials?.deductions | number:'1.0-0' }} Ft</span>
+                    <span class="font-bold text-red-200">-{{ financials.deductions | number:'1.0-0' }} Ft</span>
                 </div>
             </div>
         </div>
 
-        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div [ngClass]="{'lg:col-span-2': financials, 'lg:col-span-3': !financials}" class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="bg-slate-50 px-4 py-3 border-b border-slate-200">
                 <h3 class="font-bold text-slate-700">Részletes Elszámolás</h3>
             </div>
@@ -73,7 +73,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
-                        <tr>
+                        <tr *ngIf="financials">
                             <td class="px-4 py-3 font-medium">Alapbér</td>
                             <td class="px-4 py-3 text-right">1 hó</td>
                             <td class="px-4 py-3 text-right">-</td>
@@ -82,17 +82,21 @@
                         <tr>
                             <td class="px-4 py-3">Műszakpótlék (22-06)</td>
                             <td class="px-4 py-3 text-right">
-                                <span class="font-bold">{{ financials?.hours?.shift }} óra</span>
-                                <span class="text-xs text-slate-400 block" *ngIf="toHours(stats.shiftAllowanceMins) !== financials?.hours?.shift">({{ toHours(stats.shiftAllowanceMins) }} tényleges)</span>
+                                <span class="font-bold" *ngIf="financials">{{ financials.hours.shift }} óra</span>
+                                <span class="font-bold" *ngIf="!financials">{{ toHours(stats.shiftAllowanceMins) }} óra</span>
+                                
+                                <span class="text-xs text-slate-400 block" *ngIf="financials && toHours(stats.shiftAllowanceMins) !== financials.hours.shift">({{ toHours(stats.shiftAllowanceMins) }} tényleges)</span>
                             </td>
                             <td class="px-4 py-3 text-right text-slate-400">30%</td>
-                            <td class="px-4 py-3 text-right">{{ financials?.shiftPay | number:'1.0-0' }} Ft</td>
+                            <td class="px-4 py-3 text-right">{{ financials?.shiftAllowancePay | number:'1.0-0' }} Ft</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3">Készenléti díj</td>
                             <td class="px-4 py-3 text-right">
-                                <span class="font-bold">{{ financials?.hours?.standby }} óra</span>
-                                <span class="text-xs text-slate-400 block" *ngIf="toHours(stats.standbyMins) !== financials?.hours?.standby">({{ toHours(stats.standbyMins) }} tényleges)</span>
+                                <span class="font-bold" *ngIf="financials">{{ financials.hours.standby }} óra</span>
+                                <span class="font-bold" *ngIf="!financials">{{ toHours(stats.standbyMins) }} óra</span>
+                                
+                                <span class="text-xs text-slate-400 block" *ngIf="financials && toHours(stats.standbyMins) !== financials.hours.standby">({{ toHours(stats.standbyMins) }} tényleges)</span>
                             </td>
                             <td class="px-4 py-3 text-right text-slate-400">20%</td>
                             <td class="px-4 py-3 text-right">{{ financials?.standbyPay | number:'1.0-0' }} Ft</td>
@@ -100,8 +104,10 @@
                         <tr>
                             <td class="px-4 py-3">Túlóra (Hétköznap)</td>
                             <td class="px-4 py-3 text-right">
-                                <span class="font-bold">{{ financials?.hours?.weekdayOt }} óra</span>
-                                <span class="text-xs text-slate-400 block" *ngIf="toHours(stats.weekdayOtMins) !== financials?.hours?.weekdayOt">({{ toHours(stats.weekdayOtMins) }} tényleges)</span>
+                                <span class="font-bold" *ngIf="financials">{{ financials.hours.weekdayOt }} óra</span>
+                                <span class="font-bold" *ngIf="!financials">{{ toHours(stats.weekdayOtMins) }} óra</span>
+                                
+                                <span class="text-xs text-slate-400 block" *ngIf="financials && toHours(stats.weekdayOtMins) !== financials.hours.weekdayOt">({{ toHours(stats.weekdayOtMins) }} tényleges)</span>
                             </td>
                             <td class="px-4 py-3 text-right text-slate-400">150%</td>
                             <td class="px-4 py-3 text-right">{{ financials?.weekdayOtPay | number:'1.0-0' }} Ft</td>
@@ -109,8 +115,10 @@
                         <tr>
                             <td class="px-4 py-3">Túlóra (Pihenőnap)</td>
                             <td class="px-4 py-3 text-right">
-                                <span class="font-bold">{{ financials?.hours?.restDayOt }} óra</span>
-                                <span class="text-xs text-slate-400 block" *ngIf="toHours(stats.restDayOtMins) !== financials?.hours?.restDayOt">({{ toHours(stats.restDayOtMins) }} tényleges)</span>
+                                <span class="font-bold" *ngIf="financials">{{ financials.hours.restDayOt }} óra</span>
+                                <span class="font-bold" *ngIf="!financials">{{ toHours(stats.restDayOtMins) }} óra</span>
+                                
+                                <span class="text-xs text-slate-400 block" *ngIf="financials && toHours(stats.restDayOtMins) !== financials.hours.restDayOt">({{ toHours(stats.restDayOtMins) }} tényleges)</span>
                             </td>
                             <td class="px-4 py-3 text-right text-slate-400">200%</td>
                             <td class="px-4 py-3 text-right">{{ financials?.restDayOtPay | number:'1.0-0' }} Ft</td>

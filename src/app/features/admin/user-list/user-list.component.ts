@@ -32,6 +32,18 @@ export class UserListComponent implements OnInit {
     this.loadUsers();
   }
 
+  async uploadHolidays() {
+    if (confirm('Szeretnéd feltölteni a 2025-ös és 2026-os ünnepnapokat az adatbázisba?')) {
+      try {
+        const count = await this.dataService.initializeHolidays();
+        alert(`Siker! ${count} db ünnepnap és munkanap-áthelyezés rögzítve.`);
+      } catch (err) {
+        console.error(err);
+        alert('Hiba történt a feltöltéskor!');
+      }
+    }
+  }
+
   loadUsers() {
     // A getAllUsers Observable-t ad vissza, ez maradhat subscribe
     this.dataService.getAllUsers().subscribe(res => {

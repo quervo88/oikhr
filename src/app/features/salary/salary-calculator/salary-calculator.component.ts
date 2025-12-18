@@ -1,10 +1,11 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { SalaryService } from '../../../core/services/salary.service'; // Ellenőrizd az útvonalat
+import { SalaryService } from '../../../core/services/salary.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { DataService } from '../../../core/services/data.service';
-import { ShiftEntry, OvertimeEntry } from '../../../core/models/app.models';
+import { ShiftEntry, OvertimeEntry, User } from '../../../core/models/app.models';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-salary-calculator',
@@ -13,7 +14,7 @@ import { ShiftEntry, OvertimeEntry } from '../../../core/models/app.models';
   templateUrl: './salary-calculator.component.html',
   styleUrls: ['./salary-calculator.component.scss']
 })
-export class SalaryCalculatorComponent implements OnInit {
+export class SalaryCalculatorComponent implements OnInit, OnDestroy {
   private salaryService = inject(SalaryService);
   private authService = inject(AuthService);
   private dataService = inject(DataService);
@@ -44,62 +45,81 @@ export class SalaryCalculatorComponent implements OnInit {
   shifts: ShiftEntry[] = [];
   overtimes: OvertimeEntry[] = [];
 
-  ngOnInit() {
-    // 1. Jelenlegi felhasználó bérének betöltése
-    const user = this.authService.getCurrentUser();
-    if (user && user.baseSalary) {
-      this.baseSalary = user.baseSalary;
-    } else {
-      this.baseSalary = 0; 
-    }
+  private userSub?: Subscription;
 
-    // 2. Dátumok beállítása (Jelenlegi hónap)
+  ngOnInit() {
+    // 1. Dátumok beállítása (Jelenlegi hónap - Helyi idő szerint)
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
 
-    // Naptári hónap (pl. 01-31)
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     
-    // Túlóra időszak (előző hó 16 - tárgyhó 15)
-    // Megjegyzés: Ez csak alapértelmezés, a felületen átírható
+    // Előző hó 16 - Tárgyhó 15
     const prevMonth = month === 0 ? 11 : month - 1;
     const prevYear = month === 0 ? year - 1 : year;
     
-    this.standardStartStr = firstDay.toISOString().split('T')[0];
-    this.standardEndStr = lastDay.toISOString().split('T')[0];
+    this.standardStartStr = this.formatDateLocal(firstDay);
+    this.standardEndStr = this.formatDateLocal(lastDay);
     
     this.otStartStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-16`;
     this.otEndStr = `${year}-${String(month + 1).padStart(2, '0')}-15`;
 
-    // 3. Adatok lekérése és számolás
+    // 2. Feliratkozás a felhasználó változására (Így azonnal frissül a bér, ha betöltődik)
+    this.userSub = this.authService.currentUser$.subscribe(user => {
+      if (user && user.baseSalary) {
+        this.baseSalary = user.baseSalary;
+        // Ha megjött a bér, és már vannak adatok, számoljunk újra!
+        if (this.shifts.length > 0) {
+          this.calculate();
+        }
+      }
+    });
+
+    // 3. Adatok lekérése és kezdeti számolás
     this.loadDataAndCalculate();
+  }
+
+  ngOnDestroy() {
+    if (this.userSub) this.userSub.unsubscribe();
+  }
+
+  // Segéd: Helyi idő szerinti dátum string (YYYY-MM-DD)
+  private formatDateLocal(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
   loadDataAndCalculate() {
     // Párhuzamosan lekérjük a műszakokat és túlórákat
-    // (A valóságban itt szűrni kéne dátumra vagy ID-re, de a MockDataService memóriából dolgozik)
     this.dataService.getShifts().subscribe(shifts => {
       this.shifts = shifts;
       this.dataService.getOvertimes().subscribe(ots => {
         this.overtimes = ots;
+        // Ha megérkeztek az adatok, számolunk (a baseSalary már be lehet állítva a userSub-ból)
         this.calculate();
       });
     });
   }
 
   calculate() {
-    if (!this.baseSalary) return;
-
-    // Dátum objektumok készítése a stringekből
+    // Dátum objektumok készítése - 12:00-ra állítva a Timezone hibák ellen
     const stdStart = new Date(this.standardStartStr);
-    const stdEnd = new Date(this.standardEndStr);
-    const otStart = new Date(this.otStartStr);
-    const otEnd = new Date(this.otEndStr);
+    stdStart.setHours(12, 0, 0, 0);
 
-    // Kiszámoltatjuk a statisztikát a Service-szel
-    // Itt feltételezzük, hogy a felhasználó saját adatait nézi, vagy szűrni kell
+    const stdEnd = new Date(this.standardEndStr);
+    stdEnd.setHours(12, 0, 0, 0);
+
+    const otStart = new Date(this.otStartStr);
+    otStart.setHours(12, 0, 0, 0);
+
+    const otEnd = new Date(this.otEndStr);
+    otEnd.setHours(12, 0, 0, 0);
+
+    // Aktuális felhasználó ID
     const currentUser = this.authService.getCurrentUser();
     const userId = currentUser ? currentUser.id : '';
 
@@ -115,51 +135,43 @@ export class SalaryCalculatorComponent implements OnInit {
       otEnd
     );
 
-    // Pénzügyi számítások (Financials)
-    this.calculateFinancials();
+    // Csak akkor számolunk pénzt, ha van megadva bér
+    if (this.baseSalary > 0) {
+      this.calculateFinancials();
+    } else {
+      this.financials = null;
+    }
   }
 
   calculateFinancials() {
-    const hourlyRate = this.baseSalary / 174; // Általános osztószám (vagy 160)
+    const hourlyRate = this.baseSalary / 174;
 
-    // Kerekített órák a megjelenítéshez
-    const hours = {
-      shiftAllowance: Math.round(this.stats.shiftAllowanceMins / 60),
-      standby: Math.round(this.stats.standbyMins / 60),
-      weekdayOt: Math.round(this.stats.weekdayOtMins / 60),
-      restDayOt: Math.round(this.stats.restDayOtMins / 60)
-    };
-
-    // Fizetések számolása (Percre pontosan számolunk a háttérben)
-    // 30% műszakpótlék
     const shiftAllowancePay = (this.stats.shiftAllowanceMins / 60) * hourlyRate * 0.30;
-    
-    // 20% készenlét
     const standbyPay = (this.stats.standbyMins / 60) * hourlyRate * 0.20;
-    
-    // 150% hétköznapi túlóra (Alapbér + 50% pótlék, vagy csak a pótlék? Itt most a teljes kifizetést veszem)
-    // Általában túlóra = (Órabér * 1.5)
     const weekdayOtPay = (this.stats.weekdayOtMins / 60) * hourlyRate * 1.5;
-
-    // 200% pihenőnapi túlóra
     const restDayOtPay = (this.stats.restDayOtMins / 60) * hourlyRate * 2.0;
 
     const grossTotal = this.baseSalary + shiftAllowancePay + standbyPay + weekdayOtPay + restDayOtPay;
-    const netTotal = grossTotal * 0.665; // Kb 33.5% levonás (szja, tb)
+    const netTotal = grossTotal * 0.665; // Kb 33.5% levonás
 
     this.financials = {
-      hours: hours,
+      hours: {
+        shift: Math.round(this.stats.shiftAllowanceMins / 60),
+        standby: Math.round(this.stats.standbyMins / 60),
+        weekdayOt: Math.round(this.stats.weekdayOtMins / 60),
+        restDayOt: Math.round(this.stats.restDayOtMins / 60)
+      },
       basePay: this.baseSalary,
       shiftAllowancePay: shiftAllowancePay,
       standbyPay: standbyPay,
       weekdayOtPay: weekdayOtPay,
       restDayOtPay: restDayOtPay,
-      grossTotal: grossTotal,
-      netTotal: netTotal
+      totalGross: grossTotal,
+      net: netTotal,
+      deductions: grossTotal - netTotal
     };
   }
 
-  // Segédfüggvény a HTML-nek
   toHours(mins: number): number {
     return Math.round(mins / 60);
   }

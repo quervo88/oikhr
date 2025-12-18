@@ -1,25 +1,3 @@
-<div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center shrink-0">
-            <div>
-                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <span>{{ date }}</span>
-                    <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">
-                        {{ isWeekendOrHoliday ? 'Hétvége / Ünnep' : 'Munkanap' }}
-                    </span>
-                </h3>
-            </div>
-            
-            <div *ngIf="currentUserRole !== 'dispatcher'" class="flex items-center gap-2">
-                <label class="text-xs font-bold text-slate-500 uppercase">Dolgozó:</label>
-                <select [(ngModel)]="targetUserId" class="border border-slate-300 rounded px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:border-blue-500">
-                    <option *ngFor="let user of users" [value]="user.id">{{ user.name }}</option>
-                </select>
-            </div>
-
-            <button (click)="close.emit()" class="text-slate-400 hover:text-red-500 transition-colors">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-        </div>
-
 <div class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 fade-in">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
@@ -32,7 +10,15 @@
                     </span>
                 </h3>
             </div>
-            <button (click)="close.emit()" class="text-slate-400 hover:text-red-500 transition-colors">
+            
+            <div *ngIf="users.length > 1" class="flex items-center gap-2">
+                <label class="text-xs font-bold text-slate-500 uppercase">Dolgozó:</label>
+                <select [(ngModel)]="targetUserId" class="border border-slate-300 rounded px-2 py-1 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 bg-white">
+                    <option *ngFor="let user of users" [value]="user.id">{{ user.name }}</option>
+                </select>
+            </div>
+
+            <button (click)="close.emit()" class="text-slate-400 hover:text-red-500 transition-colors ml-4">
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
@@ -50,11 +36,9 @@
             </button>
         </div>
 
-        <div class="p-6 overflow-y-auto flex-grow space-y-6">
+        <div class="p-6 overflow-y-auto flex-grow space-y-6 custom-scrollbar">
             
             <div *ngIf="activeTab === 'shift'" class="fade-in">
-                
-
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
                     <button *ngFor="let type of shiftTypes"
                             (click)="selectMainType(type)"
@@ -74,7 +58,7 @@
                     </button>
                 </div>
 
-                <div *ngIf="mainType && shiftTypesConfig[mainType].start !== null" 
+                <div *ngIf="mainType && shiftTypesConfig[mainType].start" 
                      class="bg-slate-50 p-4 rounded-lg border border-slate-200 transition-all">
                     <div class="flex items-end gap-4">
                         <div class="flex-1">
@@ -107,10 +91,15 @@
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <input *ngIf="newOtType === 'ticket'" [(ngModel)]="newOtDetails" type="text" pattern="[0-9]*" class="w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white" placeholder="Ticket ID (csak szám)">
-                        <input *ngIf="newOtType === 'other'" [(ngModel)]="newOtDetails" type="text" class="col-span-2 w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white" placeholder="Indoklás (kötelező)">
+                        <input *ngIf="newOtType !== 'substitution'" 
+                               [(ngModel)]="newOtDetails" type="text" 
+                               [placeholder]="newOtType === 'ticket' ? 'Ticketszám (Kötelező)' : 'Indoklás (Kötelező)'"
+                               class="col-span-2 w-full border border-slate-300 rounded px-3 py-2 text-sm bg-white"
+                               [class.border-red-300]="!newOtDetails"> <div *ngIf="newOtType === 'substitution'" class="col-span-2 text-xs text-slate-400 italic flex items-center">
+                            Helyettesítéshez nem szükséges megjegyzés.
+                        </div>
                         
-                        <button (click)="addOvertime()" class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 text-sm font-bold transition-colors w-full sm:w-auto ml-auto col-start-3 shadow-sm">
+                        <button (click)="addOvertime()" class="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 text-sm font-bold transition-colors w-full shadow-sm">
                             Hozzáadás
                         </button>
                     </div>
@@ -124,10 +113,12 @@
                     <div class="space-y-2">
                         <div *ngFor="let ot of tempOvertimes; let i = index" class="flex items-center justify-between bg-white p-3 rounded-lg border border-slate-200 text-sm shadow-sm">
                             <div class="flex items-center gap-3">
-                                <span class="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded uppercase">{{ ot.type === 'ticket' ? 'Ticket' : (ot.type === 'substitution' ? 'Helyettesítés' : 'Egyéb') }}</span>
+                                <span class="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded uppercase">
+                                    {{ ot.type === 'ticket' ? 'Ticket' : (ot.type === 'substitution' ? 'Helyettesítés' : 'Egyéb') }}
+                                </span>
                                 <span class="font-bold text-slate-800">{{ ot.startTime }} - {{ ot.endTime }}</span>
-                                <span class="text-slate-400">|</span>
-                                <span class="text-slate-600">{{ ot.details || '-' }}</span>
+                                <span class="text-slate-400" *ngIf="ot.comment">|</span>
+                                <span class="text-slate-600" *ngIf="ot.comment">{{ ot.comment }}</span>
                             </div>
                             <button (click)="removeOvertime(i)" class="text-red-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-colors">
                                 <span class="material-symbols-outlined text-lg">delete</span>
@@ -139,8 +130,10 @@
 
         </div>
 
-<div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
-            <button *ngIf="existingShift" (click)="onDeleteMain()" class="mr-auto text-red-500 hover:bg-red-50 hover:text-red-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-transparent hover:border-red-200">
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+            <button *ngIf="existingShift && existingShift.id" (click)="onDeleteMain()" type="button" 
+                    class="mr-auto text-red-500 hover:bg-red-50 hover:text-red-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-transparent hover:border-red-200 flex items-center gap-1">
+                <span class="material-symbols-outlined text-lg">delete</span>
                 Beosztás Törlése
             </button>
 

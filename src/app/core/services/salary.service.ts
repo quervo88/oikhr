@@ -11,7 +11,6 @@ export class SalaryService {
 
   /**
    * Fő statisztika kalkulátor (Elszámolás / Tervezés nézethez)
-   * Most már a SalaryStats interface-t adja vissza
    */
   calculateStats(
     shifts: ShiftEntry[], 
@@ -34,7 +33,10 @@ export class SalaryService {
 
     // 1. Műszakok feldolgozása (Naptári hónap: stdStart -> stdEnd)
     shifts.forEach(shift => {
+      // Dátum normalizálás (délre állítjuk, hogy elkerüljük a timezone csúszást)
       const d = new Date(shift.date);
+      d.setHours(12, 0, 0, 0);
+
       // Csak ami a naptári hónapba esik
       if (d >= stdStart && d <= stdEnd) {
         if (shift.type === 'szabadsag') {
@@ -42,7 +44,15 @@ export class SalaryService {
         } else if (shift.type === 'betegseg') {
           stats.sickDays++;
         } else if (shift.type === 'keszenlet') {
-          stats.standbyMins += this.calculateDurationMins(shift.startTime, shift.endTime);
+          // Készenlét számítása Ticket levonással
+          let duration = this.calculateDurationMins(shift.startTime, shift.endTime);
+          
+          // Megnézzük, volt-e Ticket ebben az időben, és levonjuk a TELJES hosszát
+          const ticketMins = this.calculateTicketDeduction(shift, overtimes);
+          duration = Math.max(0, duration - ticketMins);
+
+          stats.standbyMins += duration;
+
         } else if (['nappal', 'este', 'ejszaka'].includes(shift.type)) {
           // Műszakpótlék számítása
           stats.shiftAllowanceMins += this.calculateShiftAllowance(shift);
@@ -53,6 +63,8 @@ export class SalaryService {
     // 2. Túlórák feldolgozása (Kettős időszak logika)
     overtimes.forEach(ot => {
       const d = new Date(ot.date);
+      d.setHours(12, 0, 0, 0);
+      
       let include = false;
 
       // Helyettesítés: Naptári hónap (stdStart -> stdEnd)
@@ -69,55 +81,73 @@ export class SalaryService {
       }
 
       if (include) {
-        // Túlóra típusának eldöntése (150% vagy 200%)
-        // A calculateOvertime függvényed ezt szépen kezeli
         const otResult = this.calculateOvertime(ot);
         stats.weekdayOtMins += otResult.weekdayMins;
         stats.restDayOtMins += otResult.restDayMins;
-        
-        // Ha lenne éjszakai munkavégzés készenlét alatt, azt itt lehetne kezelni,
-        // de a te logikádban ez külön van, vagy a calculateOvertime kezeli?
-        // Egyelőre hagyjuk a te logikádat.
       }
     });
 
     return stats;
   }
 
-  // --- BELSŐ KALKULÁCIÓK (Megtartva az eredeti logikádat) ---
+  // --- BELSŐ KALKULÁCIÓK ---
+
+  // MÓDOSÍTVA: Nem csak a metszetet nézi, hanem ha a ticket a készenlét alatt KEZDŐDIK,
+  // akkor a teljes hosszát levonja (akár éjfélen túl is).
+  private calculateTicketDeduction(shift: ShiftEntry, allOvertimes: OvertimeEntry[]): number {
+    // Csak az aznapi ticketeket nézzük
+    const tickets = allOvertimes.filter(ot => ot.date === shift.date && ot.type === 'ticket');
+    if (tickets.length === 0) return 0;
+
+    let totalDeductionMins = 0;
+
+    const shiftStart = this.timeToMins(shift.startTime);
+    let shiftEnd = this.timeToMins(shift.endTime);
+    // Készenlét: 00:00 - 00:00 -> 0 - 1440
+    if (shiftStart === 0 && shiftEnd === 0) shiftEnd = 1440; 
+    else if (shiftEnd < shiftStart) shiftEnd += 1440; // Átnyúlik éjfélen (pl 16:00 - 08:00)
+
+    tickets.forEach(ticket => {
+      const ticketStart = this.timeToMins(ticket.startTime);
+      
+      // Ellenőrizzük, hogy a Ticket kezdete beleesik-e a Készenlét sávjába
+      let startsInShift = false;
+
+      // Ha a shift átnyúlik éjfélen (pl. 960 -> 1920)
+      if (shiftEnd > 1440) {
+         // A ticket kezdhet 960..1440 között VAGY 0..(shiftEnd-1440) között
+         if (ticketStart >= shiftStart) startsInShift = true;
+         if (ticketStart < (shiftEnd - 1440)) startsInShift = true;
+      } else {
+         // Normál napon belüli shift
+         if (ticketStart >= shiftStart && ticketStart < shiftEnd) startsInShift = true;
+      }
+
+      if (startsInShift) {
+        // Ha a ticket a készenlét alatt indult, a TELJES időtartamát levonjuk,
+        // függetlenül attól, hogy átlóg-e másnapra.
+        totalDeductionMins += this.calculateDurationMins(ticket.startTime, ticket.endTime);
+      }
+    });
+
+    return totalDeductionMins;
+  }
 
   private calculateShiftAllowance(shift: ShiftEntry): number {
     // 18:00 - 06:00 közötti időszak
-    // Ez a te eredeti logikád, nem nyúlok hozzá
     const shiftStart = this.timeToMins(shift.startTime);
     let shiftEnd = this.timeToMins(shift.endTime);
     if (shiftEnd < shiftStart) shiftEnd += 1440;
 
-    // Két sáv: 18:00-24:00 (1080-1440) és 00:00-06:00 (0-360)
-    // De mivel a shiftEnd > 1440 lehet, egyszerűbb abszolút percekkel számolni
-    
-    // Sáv 1: Ma este 18:00 - Ma éjfél
-    const p1 = this.getOverlap(shiftStart, shiftEnd, 1080, 1440);
-    
-    // Sáv 2: Holnap reggel 00:00 - 06:00 (ami a shiftben 1440-1800)
-    // VAGY Ma reggel 00:00 - 06:00 (ha a műszak éjfél után indult)
-    
-    // A te egyszerűsített logikádhoz igazodva, vagy a standard módszer:
-    // Nézzük meg, mennyi esik 18:00 és 06:00 közé.
-    
     let allowance = 0;
     
-    // Vizsgáljuk a percről percre
-    // Ez nem a leghatékonyabb, de pontos. Vagy használjuk a getOverlap-ot okosan.
-    
-    // Egyszerűsítve: 
-    // Este sáv: 18:00 -> 24:00
+    // Este sáv: 18:00 -> 24:00 (1080 - 1440)
     allowance += this.getOverlap(shiftStart, shiftEnd, 1080, 1440);
     
-    // Reggel sáv (ha átnyúlik másnapra): 24:00 -> 30:00 (06:00)
+    // Reggel sáv (ha átnyúlik másnapra): 24:00 -> 30:00 (1440 - 1800)
     allowance += this.getOverlap(shiftStart, shiftEnd, 1440, 1800);
     
-    // Reggel sáv (ha aznap kezdődött éjfél után): 00:00 -> 06:00
+    // Reggel sáv (ha aznap kezdődött éjfél után): 00:00 -> 06:00 (0 - 360)
     if (shiftStart < 360) {
         allowance += this.getOverlap(shiftStart, shiftEnd, 0, 360);
     }
@@ -129,7 +159,6 @@ export class SalaryService {
     const duration = this.calculateDurationMins(ot.startTime, ot.endTime);
     const isWeekend = this.holidayService.isWeekendOrHoliday(ot.date);
     
-    // Eredeti logikád:
     if (isWeekend) {
       return { weekdayMins: 0, restDayMins: duration };
     } else {
@@ -143,41 +172,36 @@ export class SalaryService {
     return Math.max(0, minEnd - maxStart);
   }
 
-  // Pénzügyi számító (ha használod valahol)
+  // Pénzügyi számító
   public calculateFinancials(baseSalary: number, stats: SalaryStats) {
       const hourlyRate = this.calculateHourlyRate(baseSalary);
       
       return {
           shiftAllowancePay: (stats.shiftAllowanceMins / 60) * hourlyRate * 0.30,
           standbyPay: (stats.standbyMins / 60) * hourlyRate * 0.20,
-          weekdayOtPay: (stats.weekdayOtMins / 60) * hourlyRate * 1.50, // 150%
-          restDayOtPay: (stats.restDayOtMins / 60) * hourlyRate * 2.00  // 200%
+          weekdayOtPay: (stats.weekdayOtMins / 60) * hourlyRate * 1.50,
+          restDayOtPay: (stats.restDayOtMins / 60) * hourlyRate * 2.00
       };
   }
 
   public calculateHourlyRate(baseSalary: number): number {
-      // A te fix osztószámod
       return baseSalary / 174;
   }
 
+  // --- SEGÉDFÜGGVÉNYEK ---
 
-  // --- SEGÉDFÜGGVÉNYEK (ÁTÁLLÍTVA PUBLIC-RA AZ EXCEL/PDF MIATT) ---
-
-  // Eredetileg private volt, most public
   public timeToMins(time: string): number {
     if (!time) return 0;
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
   }
 
-  // Eredetileg private volt, most public
   public minsToHm(totalMins: number): string {
     const h = Math.floor(totalMins / 60);
     const m = totalMins % 60;
     return `${h}:${String(m).padStart(2, '0')}`;
   }
 
-  // Eredetileg private volt, most public
   public calculateDurationMins(start: string, end: string): number {
     if (!start || !end) return 0;
     const s = this.timeToMins(start);
@@ -190,9 +214,7 @@ export class SalaryService {
     return e - s;
   }
 
-  // --- ÚJ FÜGGVÉNY (Ezt hiányolta az Excel Service) ---
   public getRoundedHoursForPayroll(mins: number): number {
       return Math.round(mins / 60);
   }
-  
 }

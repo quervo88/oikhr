@@ -60,6 +60,57 @@ export class DataService {
     await Promise.all(deletePromises);
   }
 
+  async initializeHolidays() {
+    const holidays = [
+      // --- 2025 ---
+      { date: '2025-01-01', type: 'holiday', comment: 'Újév' },
+      { date: '2025-03-15', type: 'holiday', comment: 'Nemzeti ünnep' },
+      { date: '2025-04-18', type: 'holiday', comment: 'Nagypéntek' },
+      { date: '2025-04-21', type: 'holiday', comment: 'Húsvét hétfő' },
+      { date: '2025-05-01', type: 'holiday', comment: 'Munka ünnepe' },
+      { date: '2025-05-02', type: 'holiday', comment: 'Pihenőnap (máj. 17. helyett)' }, // Hosszú hétvége
+      { date: '2025-05-17', type: 'workday', comment: 'Munkanap (máj. 2. helyett)' },  // LEDOLGOZÓS
+      { date: '2025-06-09', type: 'holiday', comment: 'Pünkösd hétfő' },
+      { date: '2025-08-20', type: 'holiday', comment: 'Államalapítás ünnepe' },
+      { date: '2025-10-18', type: 'workday', comment: 'Munkanap (okt. 24. helyett)' }, // LEDOLGOZÓS
+      { date: '2025-10-23', type: 'holiday', comment: '1956-os forradalom' },
+      { date: '2025-10-24', type: 'holiday', comment: 'Pihenőnap (okt. 18. helyett)' }, // Hosszú hétvége
+      { date: '2025-11-01', type: 'holiday', comment: 'Mindenszentek' },
+      { date: '2025-12-13', type: 'workday', comment: 'Munkanap (dec. 24. helyett)' }, // LEDOLGOZÓS
+      { date: '2025-12-24', type: 'holiday', comment: 'Szenteste (Pihenőnap)' },
+      { date: '2025-12-25', type: 'holiday', comment: 'Karácsony' },
+      { date: '2025-12-26', type: 'holiday', comment: 'Karácsony' },
+
+      // --- 2026 ---
+      { date: '2026-01-01', type: 'holiday', comment: 'Újév' },
+      { date: '2026-01-02', type: 'holiday', comment: 'Pihenőnap (jan. 10. helyett)' }, // Hosszú hétvége
+      { date: '2026-01-10', type: 'workday', comment: 'Munkanap (jan. 2. helyett)' },   // LEDOLGOZÓS
+      { date: '2026-03-15', type: 'holiday', comment: 'Nemzeti ünnep' },
+      { date: '2026-04-03', type: 'holiday', comment: 'Nagypéntek' },
+      { date: '2026-04-06', type: 'holiday', comment: 'Húsvét hétfő' },
+      { date: '2026-05-01', type: 'holiday', comment: 'Munka ünnepe' },
+      { date: '2026-05-25', type: 'holiday', comment: 'Pünkösd hétfő' },
+      { date: '2026-08-08', type: 'workday', comment: 'Munkanap (aug. 21. helyett)' },  // LEDOLGOZÓS
+      { date: '2026-08-20', type: 'holiday', comment: 'Államalapítás ünnepe' },
+      { date: '2026-08-21', type: 'holiday', comment: 'Pihenőnap (aug. 8. helyett)' }, // Hosszú hétvége
+      { date: '2026-10-23', type: 'holiday', comment: '1956-os forradalom' },
+      { date: '2026-11-01', type: 'holiday', comment: 'Mindenszentek' },
+      { date: '2026-12-12', type: 'workday', comment: 'Munkanap (dec. 24. helyett)' }, // LEDOLGOZÓS
+      { date: '2026-12-24', type: 'holiday', comment: 'Szenteste (Pihenőnap)' },
+      { date: '2026-12-25', type: 'holiday', comment: 'Karácsony' },
+      { date: '2026-12-26', type: 'holiday', comment: 'Karácsony' }
+    ];
+
+    const batchPromises = holidays.map(h => {
+      // Azonosító a dátum maga, így nem lesz duplikáció ha többször futtatod
+      const docRef = doc(this.firestore, 'calendarOverrides', h.date);
+      return setDoc(docRef, h);
+    });
+
+    await Promise.all(batchPromises);
+    return holidays.length;
+  }
+
   // --- TÚLÓRÁK (OVERTIMES) ---
 
   getOvertimes(): Observable<OvertimeEntry[]> {
